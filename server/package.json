@@ -10,6 +10,9 @@
     "seed": "tsx --env-file=.env src/seed.ts",
     "prisma": "prisma"
   },
+  "prisma": {
+    "seed": "tsx src/seed.ts"
+  },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcrypt": "^5.1.1",

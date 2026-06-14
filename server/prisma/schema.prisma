@@ -31,7 +31,9 @@ model Event {
   description   String
   assetHostname String  @map("asset_hostname")
   assetIp       String  @map("asset_ip")
-  sourceIp      String  @map("source_ip")
+  // Nullable: some real events have no source IP (e.g. local file changes,
+  // orphaned alerts from decommissioned sensors).
+  sourceIp      String? @map("source_ip")
   // string[] stored as a JSON-encoded string (SQLite has no array type).
   tags          String
   // Owning user, if any. Nullable so seed data without an owner still loads.
