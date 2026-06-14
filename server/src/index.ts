@@ -3,6 +3,9 @@ import helmet from "helmet";
 import cors from "cors";
 import { config } from "./config";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { authRouter } from "./routes/auth";
+import { eventsRouter } from "./routes/events";
+import { usersRouter } from "./routes/users";
 
 const app = express();
 
@@ -28,10 +31,10 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// TODO (Step 4): mount routers
-//   app.use("/api/auth", authRouter);
-//   app.use("/api/events", eventsRouter);
-//   app.use("/api/users", usersRouter);
+// API routers.
+app.use("/api/auth", authRouter);
+app.use("/api/events", eventsRouter);
+app.use("/api/users", usersRouter);
 
 // Unmatched routes → 404, then the global error handler (must be last).
 app.use(notFoundHandler);
