@@ -1,0 +1,14 @@
+# Dependencies
+node_modules
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# SQLite database files (never commit data)
+*.db
+*.db-journal
+
+# Build output
+dist

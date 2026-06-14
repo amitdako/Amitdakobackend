@@ -1,0 +1,41 @@
+// PenguWave database schema.
+// Provider is SQLite so the whole DB is a single file that survives restarts
+// and needs no separate service to run.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id
+  email        String   @unique
+  // bcrypt hash only — a plaintext password is NEVER stored or returned.
+  passwordHash String   @map("password_hash")
+  role         String // 'admin' | 'analyst' | 'viewer'
+  status       String   @default("active") // 'active' | 'disabled'
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Event {
+  id            String  @id
+  timestamp     String
+  severity      String // 'HIGH' | 'MEDIUM' | 'LOW'
+  title         String
+  description   String
+  assetHostname String  @map("asset_hostname")
+  assetIp       String  @map("asset_ip")
+  sourceIp      String  @map("source_ip")
+  // string[] stored as a JSON-encoded string (SQLite has no array type).
+  tags          String
+  // Owning user, if any. Nullable so seed data without an owner still loads.
+  userId        String? @map("user_id")
+
+  @@map("events")
+}
