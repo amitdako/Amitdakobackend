@@ -6,9 +6,10 @@ export interface SecurityEvent {
   description: string;
   assetHostname: string;
   assetIp: string;
-  sourceIp: string;
+  // Nullable: some events (e.g. orphaned alerts) have no source IP.
+  sourceIp: string | null;
   tags: string[];
-  userId: string;
+  userId: string | null;
 }
 
 export interface User {

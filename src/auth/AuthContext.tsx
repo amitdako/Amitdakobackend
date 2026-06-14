@@ -1,53 +1,63 @@
-import { createContext, useContext, useMemo, useState, ReactNode } from "react";
-import { login as apiLogin, setAuthToken } from "../api";
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  role: string;
-}
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import type { User } from "../types";
+import * as api from "../api";
 
 interface AuthContextValue {
-  user: AuthUser | null;
+  user: User | null;
+  /** True while the initial session-restore (refresh cookie) is in flight. */
+  loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
- * Holds the active session in memory (React state) instead of reading raw,
- * easily-tampered strings out of localStorage. Structural access-control
- * decisions (e.g. isAdmin) read from this state.
- *
- * NOTE: This is defense-in-depth for the UI only. The browser is never a
- * trust boundary — the backend must independently enforce authentication and
- * authorization on every request. A user can still edit in-memory state via
- * devtools; the point is simply not to ship a trivially-guessable
- * `localStorage.role = "admin"` switch.
+ * Holds the authenticated user in React state. The access token itself lives
+ * in api.ts module memory (never localStorage), and is transparently refreshed
+ * by the HTTP layer. On mount we attempt to restore the session from the
+ * HttpOnly refresh cookie so a page reload doesn't force re-login.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const value = useMemo<AuthContextValue>(() => {
-    return {
+  useEffect(() => {
+    // Let the HTTP layer force a logout when a refresh ultimately fails.
+    api.setAuthFailureHandler(() => setUser(null));
+
+    let active = true;
+    api
+      .bootstrapSession()
+      .then((restored) => {
+        if (active) setUser(restored);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
       user,
+      loading,
       isAuthenticated: user !== null,
       isAdmin: user?.role === "admin",
-      login: async (email: string, password: string) => {
-        const data = await apiLogin(email, password);
-        // Token lives in api.ts module memory; role/user lives here.
-        setAuthToken(data.token ?? null);
-        setUser(data.user ?? null);
+      login: async (email, password) => {
+        setUser(await api.login(email, password));
       },
-      logout: () => {
-        setAuthToken(null);
+      logout: async () => {
+        await api.logout();
         setUser(null);
       },
-    };
-  }, [user]);
+    }),
+    [user, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

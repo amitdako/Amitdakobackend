@@ -1,35 +1,27 @@
-import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import LoginModal from "./components/LoginModal";
 import EventsPage from "./pages/EventsPage";
 import UsersPage from "./pages/UsersPage";
+import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 function App() {
-  // Show the login modal on first visit (unless it was already dismissed this
-  // session). Computed lazily so we don't trigger a cascading render from an effect.
-  const [showLogin, setShowLogin] = useState(
-    () => !sessionStorage.getItem("login-dismissed")
-  );
-
-  const handleCloseLogin = () => {
-    sessionStorage.setItem("login-dismissed", "true");
-    setShowLogin(false);
-  };
-
   return (
     <>
-      <Navbar onLoginClick={() => setShowLogin(true)} />
+      <Navbar />
       <div className="container">
         <Routes>
-          <Route path="/" element={<Navigate to="/events" replace />} />
-          <Route path="/events" element={<EventsPage />} />
-          <Route path="/users" element={<UsersPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          {/* Everything below requires an authenticated session. */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Navigate to="/events" replace />} />
+            <Route path="/events" element={<EventsPage />} />
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
-      {showLogin && <LoginModal onClose={handleCloseLogin} />}
     </>
   );
 }

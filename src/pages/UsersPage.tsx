@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User } from "../types";
 import { useAuth } from "../auth/AuthContext";
+import { getUsers, createUser, deleteUser } from "../api";
 
 export default function UsersPage() {
   const { isAdmin } = useAuth();
 
-  // Client-side access control: only admins may view/manage users. This is a
-  // UX guard only — the backend must still enforce the admin role on every
-  // /api/users request (the browser is never a trust boundary).
+  // Client-side guard only — the backend independently enforces the admin role
+  // on every /api/users request (the browser is never a trust boundary).
   if (!isAdmin) {
     return (
       <div className="page-container">
@@ -23,41 +23,60 @@ export default function UsersPage() {
 }
 
 function UserManagement() {
-  // Mock users no longer carry plaintext passwords. Real credentials live only
-  // on the backend, hashed, and are never sent to or displayed by the client.
-  const [users, setUsers] = useState<User[]>([
-    { id: "1", email: "admin@penguwave.io", role: "admin", status: "active" },
-    { id: "2", email: "analyst@penguwave.io", role: "analyst", status: "active" },
-    { id: "3", email: "viewer@penguwave.io", role: "viewer", status: "disabled" },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("analyst");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAddUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newEmail || !newPassword) return;
-
-    // The password is collected to send to the backend on user creation, but
-    // it is never stored in client state or rendered in the UI.
-    const newUser: User = {
-      id: String(Date.now()),
-      email: newEmail,
-      role: newRole,
-      status: "active",
-    };
-
-    setUsers([...users, newUser]);
-    setNewEmail("");
-    setNewPassword("");
-    setNewRole("analyst");
-    setShowForm(false);
+  const loadUsers = () => {
+    setLoading(true);
+    getUsers()
+      .then(setUsers)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"))
+      .finally(() => setLoading(false));
   };
 
-  const handleDelete = (id: string) => {
-    setUsers(users.filter((u) => u.id !== id));
+  useEffect(loadUsers, []);
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail || !newPassword) return;
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const created = await createUser({
+        email: newEmail,
+        password: newPassword,
+        role: newRole,
+      });
+      setUsers((prev) => [...prev, created]);
+      setNewEmail("");
+      setNewPassword("");
+      setNewRole("analyst");
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to create user");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    // Optimistically remove, restore on failure.
+    const previous = users;
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    try {
+      await deleteUser(id);
+    } catch (err) {
+      setUsers(previous);
+      setError(err instanceof Error ? err.message : "Failed to delete user");
+    }
   };
 
   return (
@@ -89,7 +108,7 @@ function UserManagement() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="password"
+                placeholder="password (min 8 chars)"
                 required
               />
             </div>
@@ -101,50 +120,66 @@ function UserManagement() {
                 <option value="viewer">Viewer</option>
               </select>
             </div>
-            <button type="submit" className="btn-primary">
-              Create User
+            {formError && (
+              <p role="alert" style={{ color: "#c00", marginBottom: 12, fontSize: 14 }}>
+                {formError}
+              </p>
+            )}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? "Creating…" : "Create User"}
             </button>
           </form>
         </div>
       )}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <td>{user.email}</td>
-              <td>{user.role}</td>
-              <td>
-                <span style={{ color: user.status === "active" ? "green" : "#999" }}>
-                  {user.status}
-                </span>
-              </td>
-              <td>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDelete(user.id);
-                  }}
-                  style={{ color: "red" }}
-                >
-                  Delete
-                </a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {loading && <p style={{ color: "#999" }}>Loading users…</p>}
+      {error && (
+        <p role="alert" style={{ color: "#c00" }}>
+          {error}
+        </p>
+      )}
 
-      {users.length === 0 && <p style={{ color: "#999" }}>No users.</p>}
+      {!loading && !error && (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.email}</td>
+                  <td>{user.role}</td>
+                  <td>
+                    <span style={{ color: user.status === "active" ? "green" : "#999" }}>
+                      {user.status}
+                    </span>
+                  </td>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDelete(user.id);
+                      }}
+                      style={{ color: "red" }}
+                    >
+                      Delete
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {users.length === 0 && <p style={{ color: "#999" }}>No users.</p>}
+        </>
+      )}
     </div>
   );
 }
