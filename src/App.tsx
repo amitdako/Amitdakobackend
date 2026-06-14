@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import LoginModal from "./components/LoginModal";
@@ -6,20 +6,12 @@ import EventsPage from "./pages/EventsPage";
 import UsersPage from "./pages/UsersPage";
 import NotFound from "./pages/NotFound";
 
-// Skip the login modal during local development.
-const DEBUG_BYPASS_AUTH = false;
-
 function App() {
-  const [showLogin, setShowLogin] = useState(false);
-
-  // Show login modal on first visit
-  useEffect(() => {
-    if (DEBUG_BYPASS_AUTH) return;
-    const dismissed = sessionStorage.getItem("login-dismissed");
-    if (!dismissed) {
-      setShowLogin(true);
-    }
-  }, []);
+  // Show the login modal on first visit (unless it was already dismissed this
+  // session). Computed lazily so we don't trigger a cascading render from an effect.
+  const [showLogin, setShowLogin] = useState(
+    () => !sessionStorage.getItem("login-dismissed")
+  );
 
   const handleCloseLogin = () => {
     sessionStorage.setItem("login-dismissed", "true");

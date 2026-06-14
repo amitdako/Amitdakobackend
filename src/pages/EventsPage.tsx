@@ -51,11 +51,9 @@ export default function EventsPage() {
 
       {search && (
         <p>
-          <span
-            dangerouslySetInnerHTML={{
-              __html: sanitizeHtml("Showing results for: <strong>" + search + "</strong>"),
-            }}
-          />
+          <span>
+            Showing results for: <strong>{search}</strong>
+          </span>
           {" "}({filtered.length} events)
         </p>
       )}
@@ -132,10 +130,12 @@ export default function EventsPage() {
           <p>
             <strong>Description:</strong>
           </p>
-          {/* render rich text descriptions */}
+          {/* Render rich-text descriptions. The content is sanitized with
+              DOMPurify (see sanitizeHtml) before insertion to strip any
+              scripts / event handlers, defending against stored XSS. */}
           <div
-            ref={(el) => {
-              if (el) el.innerHTML = sanitizeHtml(selectedEvent.description);
+            dangerouslySetInnerHTML={{
+              __html: sanitizeHtml(selectedEvent.description),
             }}
           />
           <p>

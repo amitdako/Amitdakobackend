@@ -244,7 +244,7 @@
     "timestamp": "2025-02-15T18:42:10Z",
     "severity": "LOW",
     "title": "User-submitted phishing report ingested",
-    "description": "Reported subject line: <img src=x onerror=alert(document.cookie)> — submitted via the abuse mailbox for triage.",
+    "description": "Reported subject line flagged as a possible phishing lure — submitted via the abuse mailbox for triage. (Original payload redacted during ingestion.)",
     "assetHostname": "mail-gw-01.penguwave.internal",
     "assetIp": "10.0.4.9",
     "sourceIp": "203.0.113.55",

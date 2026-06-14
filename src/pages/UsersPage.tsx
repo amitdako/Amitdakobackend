@@ -1,14 +1,34 @@
 import { useState } from "react";
 import { User } from "../types";
+import { useAuth } from "../auth/AuthContext";
 
 export default function UsersPage() {
-  // TODO: add role check before rendering
-  // if (user.role !== 'admin') return null;
+  const { isAdmin } = useAuth();
 
+  // Client-side access control: only admins may view/manage users. This is a
+  // UX guard only — the backend must still enforce the admin role on every
+  // /api/users request (the browser is never a trust boundary).
+  if (!isAdmin) {
+    return (
+      <div className="page-container">
+        <h1>Access Denied</h1>
+        <p style={{ color: "#999" }}>
+          You need administrator privileges to manage users.
+        </p>
+      </div>
+    );
+  }
+
+  return <UserManagement />;
+}
+
+function UserManagement() {
+  // Mock users no longer carry plaintext passwords. Real credentials live only
+  // on the backend, hashed, and are never sent to or displayed by the client.
   const [users, setUsers] = useState<User[]>([
-    { id: "1", email: "admin@penguwave.io", role: "admin", status: "active", password: "admin123" },
-    { id: "2", email: "analyst@penguwave.io", role: "analyst", status: "active", password: "pass456" },
-    { id: "3", email: "viewer@penguwave.io", role: "viewer", status: "disabled", password: "view789" },
+    { id: "1", email: "admin@penguwave.io", role: "admin", status: "active" },
+    { id: "2", email: "analyst@penguwave.io", role: "analyst", status: "active" },
+    { id: "3", email: "viewer@penguwave.io", role: "viewer", status: "disabled" },
   ]);
 
   const [showForm, setShowForm] = useState(false);
@@ -20,12 +40,13 @@ export default function UsersPage() {
     e.preventDefault();
     if (!newEmail || !newPassword) return;
 
+    // The password is collected to send to the backend on user creation, but
+    // it is never stored in client state or rendered in the UI.
     const newUser: User = {
       id: String(Date.now()),
       email: newEmail,
       role: newRole,
       status: "active",
-      password: newPassword,
     };
 
     setUsers([...users, newUser]);
@@ -65,7 +86,7 @@ export default function UsersPage() {
             <div style={{ marginBottom: 8 }}>
               <label>Password</label>
               <input
-                type="text"
+                type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="password"
@@ -93,7 +114,6 @@ export default function UsersPage() {
             <th>Email</th>
             <th>Role</th>
             <th>Status</th>
-            <th>Password</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -107,7 +127,6 @@ export default function UsersPage() {
                   {user.status}
                 </span>
               </td>
-              <td style={{ fontFamily: "monospace", fontSize: 13 }}>{user.password}</td>
               <td>
                 <a
                   href="#"

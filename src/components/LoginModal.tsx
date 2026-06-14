@@ -1,32 +1,32 @@
 import { useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 
 interface LoginModalProps {
   onClose: () => void;
 }
 
 export default function LoginModal({ onClose }: LoginModalProps) {
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login:", email, password);
-
-    // Try to call backend (will fail if no backend running)
-    fetch("http://localhost:3001/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        localStorage.setItem("token", data.token);
-      })
-      .catch(() => {
-        // Backend not running — just close the modal
-      });
-
-    onClose();
+    setError("");
+    setSubmitting(true);
+    try {
+      await login(email, password);
+      // Only dismiss the modal once authentication actually succeeds.
+      onClose();
+    } catch (err) {
+      // On a failed or rejected login, keep the modal open and surface the
+      // error. We never close the modal (and never grant access) on failure.
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -58,8 +58,18 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               placeholder="••••••••"
             />
           </div>
-          <button type="submit" className="btn-primary" style={{ width: "100%" }}>
-            Sign In
+          {error && (
+            <p role="alert" style={{ color: "#c00", marginBottom: 12, fontSize: 14 }}>
+              {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ width: "100%" }}
+            disabled={submitting}
+          >
+            {submitting ? "Signing In…" : "Sign In"}
           </button>
         </form>
       </div>
